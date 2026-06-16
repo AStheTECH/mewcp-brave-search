@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 
-from .constants import RATE_LIMIT
+from .config import RATE_LIMIT
 
 _request_count = {"second": 0, "month": 0, "last_reset": time.monotonic()}
 

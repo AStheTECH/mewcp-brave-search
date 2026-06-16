@@ -1,4 +1,4 @@
-from .config import Settings, AVAILABLE_TOOLS
-from .service import BraveSearchService
+from .config import AVAILABLE_TOOLS
+from .tools import register_tools
 
-__all__ = ["Settings", "BraveSearchService"]
+__all__ = ["AVAILABLE_TOOLS", "register_tools"]
