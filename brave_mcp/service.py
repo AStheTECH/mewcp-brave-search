@@ -17,7 +17,7 @@ from .utils import check_rate_limit
 
 _client = httpx.AsyncClient(
     base_url=BRAVE_API_BASE,
-    timeout=httpx.Timeout(connect=CONNECT_TIMEOUT, read=READ_TIMEOUT),
+    timeout=httpx.Timeout(READ_TIMEOUT, connect=CONNECT_TIMEOUT),
 )
 
 _MAX_POLLS = 20
