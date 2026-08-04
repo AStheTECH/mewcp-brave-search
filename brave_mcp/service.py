@@ -12,10 +12,13 @@ from typing import Any
 import httpx
 from fastmcp_credentials import get_credentials
 
-from .config import API_TIMEOUT, BRAVE_API_BASE, ENDPOINT_MAP
+from .config import BRAVE_API_BASE, CONNECT_TIMEOUT, ENDPOINT_MAP, READ_TIMEOUT
 from .utils import check_rate_limit
 
-_client = httpx.AsyncClient(base_url=BRAVE_API_BASE, timeout=httpx.Timeout(API_TIMEOUT))
+_client = httpx.AsyncClient(
+    base_url=BRAVE_API_BASE,
+    timeout=httpx.Timeout(connect=CONNECT_TIMEOUT, read=READ_TIMEOUT),
+)
 
 _MAX_POLLS = 20
 _POLL_INTERVAL = 0.05  # 50 ms — matches summarizer/index.ts
