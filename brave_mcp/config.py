@@ -42,19 +42,19 @@ ENDPOINT_MAP: dict[str, str] = {
 }
 
 RATE_LIMIT = {
-    # brave_local_search fires 3 HTTP requests per tool call (web + pois + descriptions);
+    # search_local fires 3 HTTP requests per tool call (web + pois + descriptions);
     # set to 3 so a single tool invocation never self-trips the limiter.
     "per_second": 3,
     "per_month": 15000,
 }
 
 AVAILABLE_TOOLS: tuple[str, ...] = (
-    "brave_web_search",
-    "brave_local_search",
-    "brave_video_search",
-    "brave_image_search",
-    "brave_news_search",
-    "brave_place_search",
-    "brave_summarizer",
-    "brave_llm_context",
+    "search_web",
+    "search_local",
+    "search_videos",
+    "search_images",
+    "search_news",
+    "search_places",
+    "summarize_search_results",
+    "get_llm_context",
 )

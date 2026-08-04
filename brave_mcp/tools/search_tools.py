@@ -1,6 +1,6 @@
-"""Search group: brave_web_search, brave_local_search, brave_video_search,
-brave_image_search, brave_news_search, brave_place_search, brave_summarizer,
-brave_llm_context — the LLM-facing contract for all 8 Brave Search API operations.
+"""Search group: search_web, search_local, search_videos,
+search_images, search_news, search_places, summarize_search_results,
+get_llm_context — the LLM-facing contract for all 8 Brave Search API operations.
 
 Rules followed here (per MewCP server architecture):
   - Rich Field() descriptions and constraints for every parameter.
@@ -58,7 +58,7 @@ logger = logging.getLogger("brave-search-mcp.tools.search")
 
 def register_search_tools(mcp: FastMCP) -> None:
 
-    # ── brave_web_search ──────────────────────────────────────────────────────
+    # ── search_web ──────────────────────────────────────────────────────
     @mcp.tool(
         description=(
             "Performs web searches using the Brave Search API and returns comprehensive "
@@ -79,7 +79,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_web_search(
+    async def search_web(
         query: Annotated[str, Field(description="Search query (max 400 chars, 50 words)")],
         country: Annotated[CountryCode, Field(description="Country for results")] = "US",
         search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
@@ -108,10 +108,10 @@ def register_search_tools(mcp: FastMCP) -> None:
         ] = None,
         summary: Annotated[
             Optional[bool],
-            Field(description="Return a summarizer_key to pass to brave_summarizer"),
+            Field(description="Return a summarizer_key to pass to summarize_search_results"),
         ] = None,
     ) -> WebSearchResult:
-        tlog = ToolLogger(logger, "brave_web_search")
+        tlog = ToolLogger(logger, "search_web")
         try:
             result = await service.web_search({
                 "q": query,
@@ -142,7 +142,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             return _handle_request_exc(WebSearchResult, tlog, exc)
 
-    # ── brave_local_search ────────────────────────────────────────────────────
+    # ── search_local ────────────────────────────────────────────────────
     @mcp.tool(
         description=(
             "Searches for local businesses and places via the Brave Search API. "
@@ -157,12 +157,12 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_local_search(
+    async def search_local(
         query: Annotated[str, Field(description="Local search query, e.g. 'pizza near downtown Chicago'")],
         count: Annotated[int, Field(description="Results to return (1–20)", ge=1, le=20)] = 5,
         country: Annotated[CountryCode, Field(description="Country code")] = "US",
     ) -> LocalSearchResult:
-        tlog = ToolLogger(logger, "brave_local_search")
+        tlog = ToolLogger(logger, "search_local")
         try:
             result = await service.local_search(query, count, country)
             if "error" in result:
@@ -177,7 +177,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             return _handle_request_exc(LocalSearchResult, tlog, exc)
 
-    # ── brave_video_search ────────────────────────────────────────────────────
+    # ── search_videos ────────────────────────────────────────────────────
     @mcp.tool(
         description="Searches for videos via the Brave Search API. Returns titles, URLs, durations, view counts, creators, and thumbnails.",
         annotations=ToolAnnotations(
@@ -187,7 +187,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_video_search(
+    async def search_videos(
         query: Annotated[str, Field(description="Video search query (max 400 chars, 50 words)")],
         country: Annotated[CountryCode, Field(description="Country for results")] = "US",
         search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
@@ -201,7 +201,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         ] = None,
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> VideoSearchResult:
-        tlog = ToolLogger(logger, "brave_video_search")
+        tlog = ToolLogger(logger, "search_videos")
         try:
             result = await service.video_search({
                 "q": query,
@@ -226,7 +226,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             return _handle_request_exc(VideoSearchResult, tlog, exc)
 
-    # ── brave_image_search ────────────────────────────────────────────────────
+    # ── search_images ────────────────────────────────────────────────────
     @mcp.tool(
         description=(
             "Searches for images via the Brave Search API. "
@@ -240,7 +240,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_image_search(
+    async def search_images(
         query: Annotated[str, Field(description="Image search query (max 400 chars, 50 words)")],
         country: Annotated[CountryCode, Field(description="Country for results")] = "US",
         search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
@@ -248,7 +248,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         safesearch: Annotated[SafeSearch, Field(description="Safe-search level")] = "moderate",
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> ImageSearchResult:
-        tlog = ToolLogger(logger, "brave_image_search")
+        tlog = ToolLogger(logger, "search_images")
         try:
             result = await service.image_search({
                 "q": query,
@@ -270,7 +270,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             return _handle_request_exc(ImageSearchResult, tlog, exc)
 
-    # ── brave_news_search ─────────────────────────────────────────────────────
+    # ── search_news ─────────────────────────────────────────────────────
     @mcp.tool(
         description="Searches for current news articles via the Brave Search API. Returns headlines, sources, publication age, and descriptions.",
         annotations=ToolAnnotations(
@@ -280,7 +280,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_news_search(
+    async def search_news(
         query: Annotated[str, Field(description="News search query (max 400 chars, 50 words)")],
         country: Annotated[CountryCode, Field(description="Country for results")] = "US",
         search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
@@ -298,7 +298,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         ] = None,
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> NewsSearchResult:
-        tlog = ToolLogger(logger, "brave_news_search")
+        tlog = ToolLogger(logger, "search_news")
         try:
             result = await service.news_search({
                 "q": query,
@@ -324,7 +324,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             return _handle_request_exc(NewsSearchResult, tlog, exc)
 
-    # ── brave_place_search ────────────────────────────────────────────────────
+    # ── search_places ────────────────────────────────────────────────────
     @mcp.tool(
         description=(
             "Retrieves points of interest (POIs) with structured business data via "
@@ -341,7 +341,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_place_search(
+    async def search_places(
         query: Annotated[str, Field(description="Search query — shapes result type, e.g. 'coffee shops' or 'Eiffel Tower'")],
         location: Annotated[
             Optional[str],
@@ -367,7 +367,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         safesearch: Annotated[SafeSearch, Field(description="Safe-search level")] = "moderate",
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> PlaceSearchResult:
-        tlog = ToolLogger(logger, "brave_place_search")
+        tlog = ToolLogger(logger, "search_places")
         try:
             result = await service.place_search({
                 "q": query,
@@ -395,12 +395,12 @@ def register_search_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             return _handle_request_exc(PlaceSearchResult, tlog, exc)
 
-    # ── brave_summarizer ──────────────────────────────────────────────────────
+    # ── summarize_search_results ──────────────────────────────────────────────────────
     @mcp.tool(
         description=(
             "Retrieves an AI-generated summary of web search results using "
             "Brave's Summarizer API.\n\n"
-            "Workflow: call brave_web_search with summary=true first, then pass "
+            "Workflow: call search_web with summary=true first, then pass "
             "the returned summarizer_key to this tool.\n\n"
             "Requires a Brave Search API Pro AI subscription."
         ),
@@ -411,11 +411,11 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_summarizer(
-        key: Annotated[str, Field(description="Summarizer key from brave_web_search called with summary=true")],
+    async def summarize_search_results(
+        key: Annotated[str, Field(description="Summarizer key from search_web called with summary=true")],
         entity_info: Annotated[bool, Field(description="Include related entity information")] = False,
     ) -> SummarizerResult:
-        tlog = ToolLogger(logger, "brave_summarizer")
+        tlog = ToolLogger(logger, "summarize_search_results")
         try:
             result = await service.summarize(key, entity_info)
             if "error" in result:
@@ -426,7 +426,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             return _handle_request_exc(SummarizerResult, tlog, exc)
 
-    # ── brave_llm_context ─────────────────────────────────────────────────────
+    # ── get_llm_context ─────────────────────────────────────────────────────
     @mcp.tool(
         description=(
             "Retrieves pre-extracted, relevance-ranked web content using Brave's LLM "
@@ -447,7 +447,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             openWorldHint=True,
         ),
     )
-    async def brave_llm_context(
+    async def get_llm_context(
         query: Annotated[str, Field(description="Search query (max 400 chars, 50 words)")],
         country: Annotated[CountryCode, Field(description="Country for results")] = "US",
         search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
@@ -495,7 +495,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         x_loc_city: Annotated[Optional[str], Field(description="User city")] = None,
         x_loc_country: Annotated[Optional[str], Field(description="User 2-letter country code")] = None,
     ) -> LlmContextResult:
-        tlog = ToolLogger(logger, "brave_llm_context")
+        tlog = ToolLogger(logger, "get_llm_context")
         # Build optional geolocation headers — mirrors RequestHeadersSchema
         extra_headers: dict[str, str] = {}
         if x_loc_lat is not None:

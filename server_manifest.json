@@ -14,7 +14,7 @@
         "doc_source": "",
         "register_fn": "register_search_tools",
         "tools": {
-          "brave_web_search": {
+          "search_web": {
             "endpoint": "GET /res/v1/web/search",
             "description": "Performs web searches using the Brave Search API and returns comprehensive search results with rich metadata (web, FAQ, discussions, news, and video items).",
             "tier": "GET",
@@ -33,14 +33,14 @@
               { "name": "goggles", "type": "list[str] | None", "required": false, "description": "Goggle HTTPS URLs for custom re-ranking" },
               { "name": "units", "type": "Units | None", "required": false, "description": "Measurement units" },
               { "name": "extra_snippets", "type": "bool | None", "required": false, "description": "Up to 5 extra excerpts per result (Pro plan)" },
-              { "name": "summary", "type": "bool | None", "required": false, "description": "Return a summarizer_key to pass to brave_summarizer" }
+              { "name": "summary", "type": "bool | None", "required": false, "description": "Return a summarizer_key to pass to summarize_search_results" }
             ],
             "response_fields": [
               { "name": "results", "type": "list[WebSearchEntryData]" }
             ],
             "schema": { "data": "WebSearchData", "result": "WebSearchResult" }
           },
-          "brave_local_search": {
+          "search_local": {
             "endpoint": "GET /res/v1/web/search (+ GET /res/v1/local/pois + GET /res/v1/local/descriptions for POI enrichment; falls back to plain web results if no locations match)",
             "description": "Searches for local businesses and places via the Brave Search API and returns ratings, addresses, phone numbers, hours, and AI descriptions.",
             "tier": "GET",
@@ -54,7 +54,7 @@
             ],
             "schema": { "data": "LocalSearchData", "result": "LocalSearchResult" }
           },
-          "brave_video_search": {
+          "search_videos": {
             "endpoint": "GET /res/v1/videos/search",
             "description": "Searches for videos via the Brave Search API and returns titles, URLs, durations, view counts, creators, and thumbnails.",
             "tier": "GET",
@@ -74,7 +74,7 @@
             ],
             "schema": { "data": "VideoSearchData", "result": "VideoSearchResult" }
           },
-          "brave_image_search": {
+          "search_images": {
             "endpoint": "GET /res/v1/images/search",
             "description": "Searches for images via the Brave Search API and returns direct image URLs, source pages, and dimensions.",
             "tier": "GET",
@@ -91,7 +91,7 @@
             ],
             "schema": { "data": "ImageSearchData", "result": "ImageSearchResult" }
           },
-          "brave_news_search": {
+          "search_news": {
             "endpoint": "GET /res/v1/news/search",
             "description": "Searches for current news articles via the Brave Search API and returns headlines, sources, publication age, and descriptions.",
             "tier": "GET",
@@ -112,7 +112,7 @@
             ],
             "schema": { "data": "NewsSearchData", "result": "NewsSearchResult" }
           },
-          "brave_place_search": {
+          "search_places": {
             "endpoint": "GET /res/v1/local/place_search",
             "description": "Retrieves points of interest (POIs) with structured business data via Brave's dedicated place-search endpoint, returning addresses, hours, ratings, categories, and contact info.",
             "tier": "GET",
@@ -135,12 +135,12 @@
             ],
             "schema": { "data": "PlaceSearchData", "result": "PlaceSearchResult" }
           },
-          "brave_summarizer": {
+          "summarize_search_results": {
             "endpoint": "GET /res/v1/summarizer/search",
             "description": "Retrieves an AI-generated summary of web search results using Brave's Summarizer API.",
             "tier": "GET",
             "params": [
-              { "name": "key", "type": "str", "required": true, "description": "Summarizer key from brave_web_search called with summary=true" },
+              { "name": "key", "type": "str", "required": true, "description": "Summarizer key from search_web called with summary=true" },
               { "name": "entity_info", "type": "bool", "required": false, "description": "Include related entity information" }
             ],
             "response_fields": [
@@ -148,7 +148,7 @@
             ],
             "schema": { "data": "SummarizerData", "result": "SummarizerResult" }
           },
-          "brave_llm_context": {
+          "get_llm_context": {
             "endpoint": "GET /res/v1/llm/context",
             "description": "Retrieves pre-extracted, relevance-ranked web content using Brave's LLM Context API, optimised for AI agents, LLM grounding, and RAG pipelines.",
             "tier": "GET",

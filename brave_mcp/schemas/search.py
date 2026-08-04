@@ -46,7 +46,7 @@ ResultFilter = Literal[
 ContextThresholdMode = Literal["disabled", "strict", "lenient", "balanced"]
 
 
-# ── brave_web_search ────────────────────────────────────────────────────────
+# ── search_web ────────────────────────────────────────────────────────
 
 class WebSearchEntryData(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -81,7 +81,7 @@ class WebSearchResult(ToolResult):
     data: WebSearchData | None = None
 
 
-# ── brave_local_search ──────────────────────────────────────────────────────
+# ── search_local ──────────────────────────────────────────────────────
 
 class LocalResultEntryData(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -110,7 +110,7 @@ class LocalSearchResult(ToolResult):
     data: LocalSearchData | None = None
 
 
-# ── brave_video_search ──────────────────────────────────────────────────────
+# ── search_videos ──────────────────────────────────────────────────────
 
 class VideoResultItemData(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -136,7 +136,7 @@ class VideoSearchResult(ToolResult):
     data: VideoSearchData | None = None
 
 
-# ── brave_image_search ──────────────────────────────────────────────────────
+# ── search_images ──────────────────────────────────────────────────────
 
 class ImageResultItemData(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -157,7 +157,7 @@ class ImageSearchResult(ToolResult):
     data: ImageSearchData | None = None
 
 
-# ── brave_news_search ───────────────────────────────────────────────────────
+# ── search_news ───────────────────────────────────────────────────────
 
 class NewsResultItemData(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -181,7 +181,7 @@ class NewsSearchResult(ToolResult):
     data: NewsSearchData | None = None
 
 
-# ── brave_place_search ──────────────────────────────────────────────────────
+# ── search_places ──────────────────────────────────────────────────────
 
 class PlaceResultItemData(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -206,7 +206,7 @@ class PlaceSearchResult(ToolResult):
     data: PlaceSearchData | None = None
 
 
-# ── brave_summarizer ────────────────────────────────────────────────────────
+# ── summarize_search_results ────────────────────────────────────────────────────────
 
 class SummarizerData(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -217,7 +217,7 @@ class SummarizerResult(ToolResult):
     data: SummarizerData | None = None
 
 
-# ── brave_llm_context ───────────────────────────────────────────────────────
+# ── get_llm_context ───────────────────────────────────────────────────────
 
 class LlmContextData(BaseModel):
     model_config = ConfigDict(extra="allow")
