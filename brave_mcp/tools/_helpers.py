@@ -5,8 +5,8 @@ from ..logging_utils import ToolLogger
 from ..schemas import ToolError
 
 
-def _err(result_class, tlog, code, message, status, retriable=False, retry_after=None):
-    tlog.failure(code, message)
+def _err(result_class, tlog, code, message, status, retriable=False, retry_after=None, log_message=None):
+    tlog.failure(code, log_message or message)
     return result_class(
         success=False, statusCode=status, retriable=retriable,
         retry_after_seconds=retry_after,

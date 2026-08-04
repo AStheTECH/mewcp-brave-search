@@ -112,31 +112,35 @@ def register_search_tools(mcp: FastMCP) -> None:
         ] = None,
     ) -> WebSearchResult:
         tlog = ToolLogger(logger, "brave_web_search")
-        result = await service.web_search({
-            "q": query,
-            "country": country,
-            "search_lang": search_lang,
-            "ui_lang": ui_lang,
-            "count": count,
-            "offset": offset,
-            "safesearch": safesearch,
-            "freshness": freshness,
-            "text_decorations": text_decorations,
-            "spellcheck": spellcheck,
-            "result_filter": result_filter,
-            "goggles": goggles,
-            "units": units,
-            "extra_snippets": extra_snippets,
-            "summary": summary,
-        })
-        if "error" in result:
-            return _err(WebSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return WebSearchResult(
-            success=True,
-            statusCode=200,
-            data=WebSearchData(results=[WebSearchEntryData(**entry) for entry in result["results"]]),
-        )
+        try:
+            result = await service.web_search({
+                "q": query,
+                "country": country,
+                "search_lang": search_lang,
+                "ui_lang": ui_lang,
+                "count": count,
+                "offset": offset,
+                "safesearch": safesearch,
+                "freshness": freshness,
+                "text_decorations": text_decorations,
+                "spellcheck": spellcheck,
+                "result_filter": result_filter,
+                "goggles": goggles,
+                "units": units,
+                "extra_snippets": extra_snippets,
+                "summary": summary,
+            })
+            if "error" in result:
+                return _err(WebSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return WebSearchResult(
+                success=True,
+                statusCode=200,
+                data=WebSearchData(results=[WebSearchEntryData(**entry) for entry in result["results"]]),
+            )
+        except Exception as exc:
+            return _handle_request_exc(WebSearchResult, tlog, exc)
 
     # ── brave_local_search ────────────────────────────────────────────────────
     @mcp.tool(
@@ -159,15 +163,19 @@ def register_search_tools(mcp: FastMCP) -> None:
         country: Annotated[CountryCode, Field(description="Country code")] = "US",
     ) -> LocalSearchResult:
         tlog = ToolLogger(logger, "brave_local_search")
-        result = await service.local_search(query, count, country)
-        if "error" in result:
-            return _err(LocalSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return LocalSearchResult(
-            success=True,
-            statusCode=200,
-            data=LocalSearchData(results=[LocalResultEntryData(**entry) for entry in result["results"]]),
-        )
+        try:
+            result = await service.local_search(query, count, country)
+            if "error" in result:
+                return _err(LocalSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return LocalSearchResult(
+                success=True,
+                statusCode=200,
+                data=LocalSearchData(results=[LocalResultEntryData(**entry) for entry in result["results"]]),
+            )
+        except Exception as exc:
+            return _handle_request_exc(LocalSearchResult, tlog, exc)
 
     # ── brave_video_search ────────────────────────────────────────────────────
     @mcp.tool(
@@ -194,25 +202,29 @@ def register_search_tools(mcp: FastMCP) -> None:
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> VideoSearchResult:
         tlog = ToolLogger(logger, "brave_video_search")
-        result = await service.video_search({
-            "q": query,
-            "country": country,
-            "search_lang": search_lang,
-            "ui_lang": ui_lang,
-            "count": count,
-            "offset": offset,
-            "safesearch": safesearch,
-            "freshness": freshness,
-            "spellcheck": spellcheck,
-        })
-        if "error" in result:
-            return _err(VideoSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return VideoSearchResult(
-            success=True,
-            statusCode=200,
-            data=VideoSearchData(results=[VideoResultItemData(**entry) for entry in result["results"]]),
-        )
+        try:
+            result = await service.video_search({
+                "q": query,
+                "country": country,
+                "search_lang": search_lang,
+                "ui_lang": ui_lang,
+                "count": count,
+                "offset": offset,
+                "safesearch": safesearch,
+                "freshness": freshness,
+                "spellcheck": spellcheck,
+            })
+            if "error" in result:
+                return _err(VideoSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return VideoSearchResult(
+                success=True,
+                statusCode=200,
+                data=VideoSearchData(results=[VideoResultItemData(**entry) for entry in result["results"]]),
+            )
+        except Exception as exc:
+            return _handle_request_exc(VideoSearchResult, tlog, exc)
 
     # ── brave_image_search ────────────────────────────────────────────────────
     @mcp.tool(
@@ -237,22 +249,26 @@ def register_search_tools(mcp: FastMCP) -> None:
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> ImageSearchResult:
         tlog = ToolLogger(logger, "brave_image_search")
-        result = await service.image_search({
-            "q": query,
-            "country": country,
-            "search_lang": search_lang,
-            "count": count,
-            "safesearch": safesearch,
-            "spellcheck": spellcheck,
-        })
-        if "error" in result:
-            return _err(ImageSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return ImageSearchResult(
-            success=True,
-            statusCode=200,
-            data=ImageSearchData(results=[ImageResultItemData(**entry) for entry in result["results"]]),
-        )
+        try:
+            result = await service.image_search({
+                "q": query,
+                "country": country,
+                "search_lang": search_lang,
+                "count": count,
+                "safesearch": safesearch,
+                "spellcheck": spellcheck,
+            })
+            if "error" in result:
+                return _err(ImageSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return ImageSearchResult(
+                success=True,
+                statusCode=200,
+                data=ImageSearchData(results=[ImageResultItemData(**entry) for entry in result["results"]]),
+            )
+        except Exception as exc:
+            return _handle_request_exc(ImageSearchResult, tlog, exc)
 
     # ── brave_news_search ─────────────────────────────────────────────────────
     @mcp.tool(
@@ -283,26 +299,30 @@ def register_search_tools(mcp: FastMCP) -> None:
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> NewsSearchResult:
         tlog = ToolLogger(logger, "brave_news_search")
-        result = await service.news_search({
-            "q": query,
-            "country": country,
-            "search_lang": search_lang,
-            "ui_lang": ui_lang,
-            "count": count,
-            "offset": offset,
-            "safesearch": safesearch,
-            "freshness": freshness,
-            "extra_snippets": extra_snippets,
-            "spellcheck": spellcheck,
-        })
-        if "error" in result:
-            return _err(NewsSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return NewsSearchResult(
-            success=True,
-            statusCode=200,
-            data=NewsSearchData(results=[NewsResultItemData(**entry) for entry in result["results"]]),
-        )
+        try:
+            result = await service.news_search({
+                "q": query,
+                "country": country,
+                "search_lang": search_lang,
+                "ui_lang": ui_lang,
+                "count": count,
+                "offset": offset,
+                "safesearch": safesearch,
+                "freshness": freshness,
+                "extra_snippets": extra_snippets,
+                "spellcheck": spellcheck,
+            })
+            if "error" in result:
+                return _err(NewsSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return NewsSearchResult(
+                success=True,
+                statusCode=200,
+                data=NewsSearchData(results=[NewsResultItemData(**entry) for entry in result["results"]]),
+            )
+        except Exception as exc:
+            return _handle_request_exc(NewsSearchResult, tlog, exc)
 
     # ── brave_place_search ────────────────────────────────────────────────────
     @mcp.tool(
@@ -348,28 +368,32 @@ def register_search_tools(mcp: FastMCP) -> None:
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
     ) -> PlaceSearchResult:
         tlog = ToolLogger(logger, "brave_place_search")
-        result = await service.place_search({
-            "q": query,
-            "location": location,
-            "latitude": latitude,
-            "longitude": longitude,
-            "radius": radius,
-            "count": count,
-            "country": country,
-            "search_lang": search_lang,
-            "ui_lang": ui_lang,
-            "units": units,
-            "safesearch": safesearch,
-            "spellcheck": spellcheck,
-        })
-        if "error" in result:
-            return _err(PlaceSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return PlaceSearchResult(
-            success=True,
-            statusCode=200,
-            data=PlaceSearchData(results=[PlaceResultItemData(**entry) for entry in result["results"]]),
-        )
+        try:
+            result = await service.place_search({
+                "q": query,
+                "location": location,
+                "latitude": latitude,
+                "longitude": longitude,
+                "radius": radius,
+                "count": count,
+                "country": country,
+                "search_lang": search_lang,
+                "ui_lang": ui_lang,
+                "units": units,
+                "safesearch": safesearch,
+                "spellcheck": spellcheck,
+            })
+            if "error" in result:
+                return _err(PlaceSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return PlaceSearchResult(
+                success=True,
+                statusCode=200,
+                data=PlaceSearchData(results=[PlaceResultItemData(**entry) for entry in result["results"]]),
+            )
+        except Exception as exc:
+            return _handle_request_exc(PlaceSearchResult, tlog, exc)
 
     # ── brave_summarizer ──────────────────────────────────────────────────────
     @mcp.tool(
@@ -392,11 +416,15 @@ def register_search_tools(mcp: FastMCP) -> None:
         entity_info: Annotated[bool, Field(description="Include related entity information")] = False,
     ) -> SummarizerResult:
         tlog = ToolLogger(logger, "brave_summarizer")
-        result = await service.summarize(key, entity_info)
-        if "error" in result:
-            return _err(SummarizerResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return SummarizerResult(success=True, statusCode=200, data=SummarizerData(text=result["text"]))
+        try:
+            result = await service.summarize(key, entity_info)
+            if "error" in result:
+                return _err(SummarizerResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return SummarizerResult(success=True, statusCode=200, data=SummarizerData(text=result["text"]))
+        except Exception as exc:
+            return _handle_request_exc(SummarizerResult, tlog, exc)
 
     # ── brave_llm_context ─────────────────────────────────────────────────────
     @mcp.tool(
@@ -479,26 +507,30 @@ def register_search_tools(mcp: FastMCP) -> None:
         if x_loc_country:
             extra_headers["x-loc-country"] = x_loc_country
 
-        result = await service.llm_context(
-            {
-                "q": query,
-                "country": country,
-                "search_lang": search_lang,
-                "count": count,
-                "freshness": freshness,
-                "spellcheck": spellcheck,
-                "maximum_number_of_urls": maximum_number_of_urls,
-                "maximum_number_of_tokens": maximum_number_of_tokens,
-                "maximum_number_of_snippets": maximum_number_of_snippets,
-                "context_threshold_mode": context_threshold_mode,
-                "maximum_number_of_tokens_per_url": maximum_number_of_tokens_per_url,
-                "maximum_number_of_snippets_per_url": maximum_number_of_snippets_per_url,
-                "enable_local": enable_local,
-                "enable_source_metadata": enable_source_metadata,
-            },
-            extra_headers or None,
-        )
-        if "error" in result:
-            return _err(LlmContextResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
-        tlog.success()
-        return LlmContextResult(success=True, statusCode=200, data=LlmContextData(**result["data"]))
+        try:
+            result = await service.llm_context(
+                {
+                    "q": query,
+                    "country": country,
+                    "search_lang": search_lang,
+                    "count": count,
+                    "freshness": freshness,
+                    "spellcheck": spellcheck,
+                    "maximum_number_of_urls": maximum_number_of_urls,
+                    "maximum_number_of_tokens": maximum_number_of_tokens,
+                    "maximum_number_of_snippets": maximum_number_of_snippets,
+                    "context_threshold_mode": context_threshold_mode,
+                    "maximum_number_of_tokens_per_url": maximum_number_of_tokens_per_url,
+                    "maximum_number_of_snippets_per_url": maximum_number_of_snippets_per_url,
+                    "enable_local": enable_local,
+                    "enable_source_metadata": enable_source_metadata,
+                },
+                extra_headers or None,
+            )
+            if "error" in result:
+                return _err(LlmContextResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True,
+                            log_message="Brave API request failed")
+            tlog.success()
+            return LlmContextResult(success=True, statusCode=200, data=LlmContextData(**result["data"]))
+        except Exception as exc:
+            return _handle_request_exc(LlmContextResult, tlog, exc)
