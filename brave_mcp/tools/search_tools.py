@@ -1,31 +1,62 @@
-"""
-Register all 8 Brave Search tools — the LLM-facing contract.
+"""Search group: brave_web_search, brave_local_search, brave_video_search,
+brave_image_search, brave_news_search, brave_place_search, brave_summarizer,
+brave_llm_context — the LLM-facing contract for all 8 Brave Search API operations.
 
 Rules followed here (per MewCP server architecture):
   - Rich Field() descriptions and constraints for every parameter.
-  - No credential parameters, ever — tools.py never touches auth.
-  - One consistent error style: every tool returns a single TextContent
-    carrying {"error": "..."} on failure instead of raising.
+  - No credential parameters, ever — this module never touches auth.
+  - One consistent error style: every tool returns a typed XxxResult carrying
+    a ToolError on failure instead of raising.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Optional
 
 from fastmcp import FastMCP
-from mcp.types import TextContent, ToolAnnotations
+from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from . import schemas as S
-from . import service
-from .utils import stringify
+from .. import service
+from ..logging_utils import ToolLogger
+from ..schemas.search import (
+    ContextThresholdMode,
+    CountryCode,
+    ImageResultItemData,
+    ImageSearchData,
+    ImageSearchResult,
+    LlmContextData,
+    LlmContextResult,
+    LocalResultEntryData,
+    LocalSearchData,
+    LocalSearchResult,
+    NewsResultItemData,
+    NewsSearchData,
+    NewsSearchResult,
+    PlaceResultItemData,
+    PlaceSearchData,
+    PlaceSearchResult,
+    ResultFilter,
+    SafeSearch,
+    SearchLang,
+    SummarizerData,
+    SummarizerResult,
+    UiLang,
+    Units,
+    VideoResultItemData,
+    VideoSearchData,
+    VideoSearchResult,
+    WebSearchData,
+    WebSearchEntryData,
+    WebSearchResult,
+)
+from ._helpers import _err, _handle_request_exc, _upstream_err
+
+logger = logging.getLogger("brave-search-mcp.tools.search")
 
 
-def _error(message: str) -> list[TextContent]:
-    return [TextContent(type="text", text=stringify({"error": message}))]
-
-
-def register_tools(mcp: FastMCP) -> None:
+def register_search_tools(mcp: FastMCP) -> None:
 
     # ── brave_web_search ──────────────────────────────────────────────────────
     @mcp.tool(
@@ -41,16 +72,21 @@ def register_tools(mcp: FastMCP) -> None:
             "When result_filter is empty, results may also contain FAQ, Discussions, "
             "News, and Video items."
         ),
-        annotations=ToolAnnotations(title="Brave Web Search", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave Web Search",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_web_search(
         query: Annotated[str, Field(description="Search query (max 400 chars, 50 words)")],
-        country: Annotated[S.CountryCode, Field(description="Country for results")] = "US",
-        search_lang: Annotated[S.SearchLang, Field(description="Search language")] = "en",
-        ui_lang: Annotated[S.UiLang, Field(description="UI language")] = "en-US",
+        country: Annotated[CountryCode, Field(description="Country for results")] = "US",
+        search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
+        ui_lang: Annotated[UiLang, Field(description="UI language")] = "en-US",
         count: Annotated[int, Field(description="Number of web results (1–20)", ge=1, le=20)] = 10,
         offset: Annotated[int, Field(description="Pagination offset (0–9)", ge=0, le=9)] = 0,
-        safesearch: Annotated[S.SafeSearch, Field(description="Safe-search level")] = "moderate",
+        safesearch: Annotated[SafeSearch, Field(description="Safe-search level")] = "moderate",
         freshness: Annotated[
             Optional[str],
             Field(description="Time filter: pd (day) pw (week) pm (month) py (year) or YYYY-MM-DDtoYYYY-MM-DD"),
@@ -58,14 +94,14 @@ def register_tools(mcp: FastMCP) -> None:
         text_decorations: Annotated[bool, Field(description="Include decoration markers in snippets")] = True,
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
         result_filter: Annotated[
-            Optional[list[S.ResultFilter]],
+            Optional[list[ResultFilter]],
             Field(description="Subset of result types to return (default ['web','query'])"),
         ] = None,
         goggles: Annotated[
             Optional[list[str]],
             Field(description="Goggle HTTPS URLs for custom re-ranking"),
         ] = None,
-        units: Annotated[Optional[S.Units], Field(description="Measurement units")] = None,
+        units: Annotated[Optional[Units], Field(description="Measurement units")] = None,
         extra_snippets: Annotated[
             Optional[bool],
             Field(description="Up to 5 extra excerpts per result (Pro plan)"),
@@ -74,7 +110,8 @@ def register_tools(mcp: FastMCP) -> None:
             Optional[bool],
             Field(description="Return a summarizer_key to pass to brave_summarizer"),
         ] = None,
-    ) -> list[TextContent]:
+    ) -> WebSearchResult:
+        tlog = ToolLogger(logger, "brave_web_search")
         result = await service.web_search({
             "q": query,
             "country": country,
@@ -93,8 +130,13 @@ def register_tools(mcp: FastMCP) -> None:
             "summary": summary,
         })
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=stringify(entry)) for entry in result["results"]]
+            return _err(WebSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return WebSearchResult(
+            success=True,
+            statusCode=200,
+            data=WebSearchData(results=[WebSearchEntryData(**entry) for entry in result["results"]]),
+        )
 
     # ── brave_local_search ────────────────────────────────────────────────────
     @mcp.tool(
@@ -104,37 +146,54 @@ def register_tools(mcp: FastMCP) -> None:
             "Access to enriched POI data requires a Brave Search API Pro plan; "
             "the tool gracefully falls back to web results if local data is unavailable."
         ),
-        annotations=ToolAnnotations(title="Brave Local Search", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave Local Search",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_local_search(
         query: Annotated[str, Field(description="Local search query, e.g. 'pizza near downtown Chicago'")],
         count: Annotated[int, Field(description="Results to return (1–20)", ge=1, le=20)] = 5,
-        country: Annotated[S.CountryCode, Field(description="Country code")] = "US",
-    ) -> list[TextContent]:
+        country: Annotated[CountryCode, Field(description="Country code")] = "US",
+    ) -> LocalSearchResult:
+        tlog = ToolLogger(logger, "brave_local_search")
         result = await service.local_search(query, count, country)
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=stringify(entry)) for entry in result["results"]]
+            return _err(LocalSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return LocalSearchResult(
+            success=True,
+            statusCode=200,
+            data=LocalSearchData(results=[LocalResultEntryData(**entry) for entry in result["results"]]),
+        )
 
     # ── brave_video_search ────────────────────────────────────────────────────
     @mcp.tool(
         description="Searches for videos via the Brave Search API. Returns titles, URLs, durations, view counts, creators, and thumbnails.",
-        annotations=ToolAnnotations(title="Brave Video Search", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave Video Search",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_video_search(
         query: Annotated[str, Field(description="Video search query (max 400 chars, 50 words)")],
-        country: Annotated[S.CountryCode, Field(description="Country for results")] = "US",
-        search_lang: Annotated[S.SearchLang, Field(description="Search language")] = "en",
-        ui_lang: Annotated[S.UiLang, Field(description="UI language")] = "en-US",
+        country: Annotated[CountryCode, Field(description="Country for results")] = "US",
+        search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
+        ui_lang: Annotated[UiLang, Field(description="UI language")] = "en-US",
         count: Annotated[int, Field(description="Results to return (1–20)", ge=1, le=20)] = 10,
         offset: Annotated[int, Field(description="Pagination offset (0–9)", ge=0, le=9)] = 0,
-        safesearch: Annotated[S.SafeSearch, Field(description="Safe-search level")] = "moderate",
+        safesearch: Annotated[SafeSearch, Field(description="Safe-search level")] = "moderate",
         freshness: Annotated[
             Optional[str],
             Field(description="Time filter: pd pw pm py or YYYY-MM-DDtoYYYY-MM-DD"),
         ] = None,
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
-    ) -> list[TextContent]:
+    ) -> VideoSearchResult:
+        tlog = ToolLogger(logger, "brave_video_search")
         result = await service.video_search({
             "q": query,
             "country": country,
@@ -147,8 +206,13 @@ def register_tools(mcp: FastMCP) -> None:
             "spellcheck": spellcheck,
         })
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=stringify(entry)) for entry in result["results"]]
+            return _err(VideoSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return VideoSearchResult(
+            success=True,
+            statusCode=200,
+            data=VideoSearchData(results=[VideoResultItemData(**entry) for entry in result["results"]]),
+        )
 
     # ── brave_image_search ────────────────────────────────────────────────────
     @mcp.tool(
@@ -157,16 +221,22 @@ def register_tools(mcp: FastMCP) -> None:
             "Returns direct image URLs, source pages, and dimensions. "
             "Images are returned as URLs — no base64 encoding."
         ),
-        annotations=ToolAnnotations(title="Brave Image Search", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave Image Search",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_image_search(
         query: Annotated[str, Field(description="Image search query (max 400 chars, 50 words)")],
-        country: Annotated[S.CountryCode, Field(description="Country for results")] = "US",
-        search_lang: Annotated[S.SearchLang, Field(description="Search language")] = "en",
+        country: Annotated[CountryCode, Field(description="Country for results")] = "US",
+        search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
         count: Annotated[int, Field(description="Results to return (1–20)", ge=1, le=20)] = 10,
-        safesearch: Annotated[S.SafeSearch, Field(description="Safe-search level")] = "moderate",
+        safesearch: Annotated[SafeSearch, Field(description="Safe-search level")] = "moderate",
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
-    ) -> list[TextContent]:
+    ) -> ImageSearchResult:
+        tlog = ToolLogger(logger, "brave_image_search")
         result = await service.image_search({
             "q": query,
             "country": country,
@@ -176,22 +246,32 @@ def register_tools(mcp: FastMCP) -> None:
             "spellcheck": spellcheck,
         })
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=stringify(entry)) for entry in result["results"]]
+            return _err(ImageSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return ImageSearchResult(
+            success=True,
+            statusCode=200,
+            data=ImageSearchData(results=[ImageResultItemData(**entry) for entry in result["results"]]),
+        )
 
     # ── brave_news_search ─────────────────────────────────────────────────────
     @mcp.tool(
         description="Searches for current news articles via the Brave Search API. Returns headlines, sources, publication age, and descriptions.",
-        annotations=ToolAnnotations(title="Brave News Search", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave News Search",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_news_search(
         query: Annotated[str, Field(description="News search query (max 400 chars, 50 words)")],
-        country: Annotated[S.CountryCode, Field(description="Country for results")] = "US",
-        search_lang: Annotated[S.SearchLang, Field(description="Search language")] = "en",
-        ui_lang: Annotated[S.UiLang, Field(description="UI language")] = "en-US",
+        country: Annotated[CountryCode, Field(description="Country for results")] = "US",
+        search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
+        ui_lang: Annotated[UiLang, Field(description="UI language")] = "en-US",
         count: Annotated[int, Field(description="Results to return (1–20)", ge=1, le=20)] = 10,
         offset: Annotated[int, Field(description="Pagination offset (0–9)", ge=0, le=9)] = 0,
-        safesearch: Annotated[S.SafeSearch, Field(description="Safe-search level")] = "moderate",
+        safesearch: Annotated[SafeSearch, Field(description="Safe-search level")] = "moderate",
         freshness: Annotated[
             Optional[str],
             Field(description="Time filter: pd pw pm py or YYYY-MM-DDtoYYYY-MM-DD"),
@@ -201,7 +281,8 @@ def register_tools(mcp: FastMCP) -> None:
             Field(description="Up to 5 extra excerpts per result (Pro plan)"),
         ] = None,
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
-    ) -> list[TextContent]:
+    ) -> NewsSearchResult:
+        tlog = ToolLogger(logger, "brave_news_search")
         result = await service.news_search({
             "q": query,
             "country": country,
@@ -215,8 +296,13 @@ def register_tools(mcp: FastMCP) -> None:
             "spellcheck": spellcheck,
         })
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=stringify(entry)) for entry in result["results"]]
+            return _err(NewsSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return NewsSearchResult(
+            success=True,
+            statusCode=200,
+            data=NewsSearchData(results=[NewsResultItemData(**entry) for entry in result["results"]]),
+        )
 
     # ── brave_place_search ────────────────────────────────────────────────────
     @mcp.tool(
@@ -228,7 +314,12 @@ def register_tools(mcp: FastMCP) -> None:
             "location string (e.g. 'san francisco ca united states').\n\n"
             "Access requires a Brave Search API Pro plan."
         ),
-        annotations=ToolAnnotations(title="Brave Place Search", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave Place Search",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_place_search(
         query: Annotated[str, Field(description="Search query — shapes result type, e.g. 'coffee shops' or 'Eiffel Tower'")],
@@ -249,13 +340,14 @@ def register_tools(mcp: FastMCP) -> None:
             Field(description="Proximity bias in metres (not a hard cutoff)"),
         ] = None,
         count: Annotated[int, Field(description="Results to return (1–50)", ge=1, le=50)] = 20,
-        country: Annotated[S.CountryCode, Field(description="Country code")] = "US",
-        search_lang: Annotated[S.SearchLang, Field(description="Search language")] = "en",
-        ui_lang: Annotated[S.UiLang, Field(description="UI language")] = "en-US",
-        units: Annotated[Optional[S.Units], Field(description="Measurement units")] = None,
-        safesearch: Annotated[S.SafeSearch, Field(description="Safe-search level")] = "moderate",
+        country: Annotated[CountryCode, Field(description="Country code")] = "US",
+        search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
+        ui_lang: Annotated[UiLang, Field(description="UI language")] = "en-US",
+        units: Annotated[Optional[Units], Field(description="Measurement units")] = None,
+        safesearch: Annotated[SafeSearch, Field(description="Safe-search level")] = "moderate",
         spellcheck: Annotated[bool, Field(description="Spellcheck the query")] = True,
-    ) -> list[TextContent]:
+    ) -> PlaceSearchResult:
+        tlog = ToolLogger(logger, "brave_place_search")
         result = await service.place_search({
             "q": query,
             "location": location,
@@ -271,8 +363,13 @@ def register_tools(mcp: FastMCP) -> None:
             "spellcheck": spellcheck,
         })
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=stringify(entry)) for entry in result["results"]]
+            return _err(PlaceSearchResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return PlaceSearchResult(
+            success=True,
+            statusCode=200,
+            data=PlaceSearchData(results=[PlaceResultItemData(**entry) for entry in result["results"]]),
+        )
 
     # ── brave_summarizer ──────────────────────────────────────────────────────
     @mcp.tool(
@@ -283,16 +380,23 @@ def register_tools(mcp: FastMCP) -> None:
             "the returned summarizer_key to this tool.\n\n"
             "Requires a Brave Search API Pro AI subscription."
         ),
-        annotations=ToolAnnotations(title="Brave Summarizer", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave Summarizer",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_summarizer(
         key: Annotated[str, Field(description="Summarizer key from brave_web_search called with summary=true")],
         entity_info: Annotated[bool, Field(description="Include related entity information")] = False,
-    ) -> list[TextContent]:
+    ) -> SummarizerResult:
+        tlog = ToolLogger(logger, "brave_summarizer")
         result = await service.summarize(key, entity_info)
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=result["text"])]
+            return _err(SummarizerResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return SummarizerResult(success=True, statusCode=200, data=SummarizerData(text=result["text"]))
 
     # ── brave_llm_context ─────────────────────────────────────────────────────
     @mcp.tool(
@@ -308,12 +412,17 @@ def register_tools(mcp: FastMCP) -> None:
             "  - Gathering source material without manually fetching pages\n\n"
             "When relaying results in markdown environments, cite source URLs from the 'sources' map."
         ),
-        annotations=ToolAnnotations(title="Brave LLM Context", openWorldHint=True),
+        annotations=ToolAnnotations(
+            title="Brave LLM Context",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=True,
+        ),
     )
     async def brave_llm_context(
         query: Annotated[str, Field(description="Search query (max 400 chars, 50 words)")],
-        country: Annotated[S.CountryCode, Field(description="Country for results")] = "US",
-        search_lang: Annotated[S.SearchLang, Field(description="Search language")] = "en",
+        country: Annotated[CountryCode, Field(description="Country for results")] = "US",
+        search_lang: Annotated[SearchLang, Field(description="Search language")] = "en",
         count: Annotated[int, Field(description="Number of results to consider (1–50)", ge=1, le=50)] = 20,
         freshness: Annotated[
             Optional[str],
@@ -333,7 +442,7 @@ def register_tools(mcp: FastMCP) -> None:
             Field(description="Max snippets across all URLs (1–256)", ge=1, le=256),
         ] = None,
         context_threshold_mode: Annotated[
-            Optional[S.ContextThresholdMode],
+            Optional[ContextThresholdMode],
             Field(description="Relevance filtering mode"),
         ] = None,
         maximum_number_of_tokens_per_url: Annotated[
@@ -357,7 +466,8 @@ def register_tools(mcp: FastMCP) -> None:
         ] = None,
         x_loc_city: Annotated[Optional[str], Field(description="User city")] = None,
         x_loc_country: Annotated[Optional[str], Field(description="User 2-letter country code")] = None,
-    ) -> list[TextContent]:
+    ) -> LlmContextResult:
+        tlog = ToolLogger(logger, "brave_llm_context")
         # Build optional geolocation headers — mirrors RequestHeadersSchema
         extra_headers: dict[str, str] = {}
         if x_loc_lat is not None:
@@ -389,5 +499,6 @@ def register_tools(mcp: FastMCP) -> None:
             extra_headers or None,
         )
         if "error" in result:
-            return _error(result["error"])
-        return [TextContent(type="text", text=stringify(result["data"]))]
+            return _err(LlmContextResult, tlog, "UPSTREAM_ERROR", result["error"], 502, retriable=True)
+        tlog.success()
+        return LlmContextResult(success=True, statusCode=200, data=LlmContextData(**result["data"]))
