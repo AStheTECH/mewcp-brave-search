@@ -1,0 +1,184 @@
+{
+  "manifest_version": 1,
+  "server": {
+    "name": "mewcp-brave-search",
+    "package": "brave_mcp",
+    "auth": "static",
+    "version": "v1.0.0",
+    "api_base": "https://api.search.brave.com"
+  },
+  "tools": {
+    "groups": {
+      "search": {
+        "file": "search_tools.py",
+        "doc_source": "",
+        "register_fn": "register_search_tools",
+        "tools": {
+          "brave_web_search": {
+            "endpoint": "GET /res/v1/web/search",
+            "description": "Performs web searches using the Brave Search API and returns comprehensive search results with rich metadata (web, FAQ, discussions, news, and video items).",
+            "tier": "GET",
+            "params": [
+              { "name": "query", "type": "str", "required": true, "description": "Search query (max 400 chars, 50 words)" },
+              { "name": "country", "type": "CountryCode", "required": false, "description": "Country for results" },
+              { "name": "search_lang", "type": "SearchLang", "required": false, "description": "Search language" },
+              { "name": "ui_lang", "type": "UiLang", "required": false, "description": "UI language" },
+              { "name": "count", "type": "int", "required": false, "description": "Number of web results (1–20)" },
+              { "name": "offset", "type": "int", "required": false, "description": "Pagination offset (0–9)" },
+              { "name": "safesearch", "type": "SafeSearch", "required": false, "description": "Safe-search level" },
+              { "name": "freshness", "type": "str | None", "required": false, "description": "Time filter: pd (day) pw (week) pm (month) py (year) or YYYY-MM-DDtoYYYY-MM-DD" },
+              { "name": "text_decorations", "type": "bool", "required": false, "description": "Include decoration markers in snippets" },
+              { "name": "spellcheck", "type": "bool", "required": false, "description": "Spellcheck the query" },
+              { "name": "result_filter", "type": "list[ResultFilter] | None", "required": false, "description": "Subset of result types to return (default ['web','query'])" },
+              { "name": "goggles", "type": "list[str] | None", "required": false, "description": "Goggle HTTPS URLs for custom re-ranking" },
+              { "name": "units", "type": "Units | None", "required": false, "description": "Measurement units" },
+              { "name": "extra_snippets", "type": "bool | None", "required": false, "description": "Up to 5 extra excerpts per result (Pro plan)" },
+              { "name": "summary", "type": "bool | None", "required": false, "description": "Return a summarizer_key to pass to brave_summarizer" }
+            ],
+            "response_fields": [
+              { "name": "results", "type": "list[WebSearchEntryData]" }
+            ],
+            "schema": { "data": "WebSearchData", "result": "WebSearchResult" }
+          },
+          "brave_local_search": {
+            "endpoint": "GET /res/v1/web/search (+ GET /res/v1/local/pois + GET /res/v1/local/descriptions for POI enrichment; falls back to plain web results if no locations match)",
+            "description": "Searches for local businesses and places via the Brave Search API and returns ratings, addresses, phone numbers, hours, and AI descriptions.",
+            "tier": "GET",
+            "params": [
+              { "name": "query", "type": "str", "required": true, "description": "Local search query, e.g. 'pizza near downtown Chicago'" },
+              { "name": "count", "type": "int", "required": false, "description": "Results to return (1–20)" },
+              { "name": "country", "type": "CountryCode", "required": false, "description": "Country code" }
+            ],
+            "response_fields": [
+              { "name": "results", "type": "list[LocalResultEntryData]" }
+            ],
+            "schema": { "data": "LocalSearchData", "result": "LocalSearchResult" }
+          },
+          "brave_video_search": {
+            "endpoint": "GET /res/v1/videos/search",
+            "description": "Searches for videos via the Brave Search API and returns titles, URLs, durations, view counts, creators, and thumbnails.",
+            "tier": "GET",
+            "params": [
+              { "name": "query", "type": "str", "required": true, "description": "Video search query (max 400 chars, 50 words)" },
+              { "name": "country", "type": "CountryCode", "required": false, "description": "Country for results" },
+              { "name": "search_lang", "type": "SearchLang", "required": false, "description": "Search language" },
+              { "name": "ui_lang", "type": "UiLang", "required": false, "description": "UI language" },
+              { "name": "count", "type": "int", "required": false, "description": "Results to return (1–20)" },
+              { "name": "offset", "type": "int", "required": false, "description": "Pagination offset (0–9)" },
+              { "name": "safesearch", "type": "SafeSearch", "required": false, "description": "Safe-search level" },
+              { "name": "freshness", "type": "str | None", "required": false, "description": "Time filter: pd pw pm py or YYYY-MM-DDtoYYYY-MM-DD" },
+              { "name": "spellcheck", "type": "bool", "required": false, "description": "Spellcheck the query" }
+            ],
+            "response_fields": [
+              { "name": "results", "type": "list[VideoResultItemData]" }
+            ],
+            "schema": { "data": "VideoSearchData", "result": "VideoSearchResult" }
+          },
+          "brave_image_search": {
+            "endpoint": "GET /res/v1/images/search",
+            "description": "Searches for images via the Brave Search API and returns direct image URLs, source pages, and dimensions.",
+            "tier": "GET",
+            "params": [
+              { "name": "query", "type": "str", "required": true, "description": "Image search query (max 400 chars, 50 words)" },
+              { "name": "country", "type": "CountryCode", "required": false, "description": "Country for results" },
+              { "name": "search_lang", "type": "SearchLang", "required": false, "description": "Search language" },
+              { "name": "count", "type": "int", "required": false, "description": "Results to return (1–20)" },
+              { "name": "safesearch", "type": "SafeSearch", "required": false, "description": "Safe-search level" },
+              { "name": "spellcheck", "type": "bool", "required": false, "description": "Spellcheck the query" }
+            ],
+            "response_fields": [
+              { "name": "results", "type": "list[ImageResultItemData]" }
+            ],
+            "schema": { "data": "ImageSearchData", "result": "ImageSearchResult" }
+          },
+          "brave_news_search": {
+            "endpoint": "GET /res/v1/news/search",
+            "description": "Searches for current news articles via the Brave Search API and returns headlines, sources, publication age, and descriptions.",
+            "tier": "GET",
+            "params": [
+              { "name": "query", "type": "str", "required": true, "description": "News search query (max 400 chars, 50 words)" },
+              { "name": "country", "type": "CountryCode", "required": false, "description": "Country for results" },
+              { "name": "search_lang", "type": "SearchLang", "required": false, "description": "Search language" },
+              { "name": "ui_lang", "type": "UiLang", "required": false, "description": "UI language" },
+              { "name": "count", "type": "int", "required": false, "description": "Results to return (1–20)" },
+              { "name": "offset", "type": "int", "required": false, "description": "Pagination offset (0–9)" },
+              { "name": "safesearch", "type": "SafeSearch", "required": false, "description": "Safe-search level" },
+              { "name": "freshness", "type": "str | None", "required": false, "description": "Time filter: pd pw pm py or YYYY-MM-DDtoYYYY-MM-DD" },
+              { "name": "extra_snippets", "type": "bool | None", "required": false, "description": "Up to 5 extra excerpts per result (Pro plan)" },
+              { "name": "spellcheck", "type": "bool", "required": false, "description": "Spellcheck the query" }
+            ],
+            "response_fields": [
+              { "name": "results", "type": "list[NewsResultItemData]" }
+            ],
+            "schema": { "data": "NewsSearchData", "result": "NewsSearchResult" }
+          },
+          "brave_place_search": {
+            "endpoint": "GET /res/v1/local/place_search",
+            "description": "Retrieves points of interest (POIs) with structured business data via Brave's dedicated place-search endpoint, returning addresses, hours, ratings, categories, and contact info.",
+            "tier": "GET",
+            "params": [
+              { "name": "query", "type": "str", "required": true, "description": "Search query — shapes result type, e.g. 'coffee shops' or 'Eiffel Tower'" },
+              { "name": "location", "type": "str | None", "required": false, "description": "Location context, e.g. 'san francisco ca united states' or 'tokyo japan'" },
+              { "name": "latitude", "type": "float | None", "required": false, "description": "Latitude (-90 to 90)" },
+              { "name": "longitude", "type": "float | None", "required": false, "description": "Longitude (-180 to 180)" },
+              { "name": "radius", "type": "int | None", "required": false, "description": "Proximity bias in metres (not a hard cutoff)" },
+              { "name": "count", "type": "int", "required": false, "description": "Results to return (1–50)" },
+              { "name": "country", "type": "CountryCode", "required": false, "description": "Country code" },
+              { "name": "search_lang", "type": "SearchLang", "required": false, "description": "Search language" },
+              { "name": "ui_lang", "type": "UiLang", "required": false, "description": "UI language" },
+              { "name": "units", "type": "Units | None", "required": false, "description": "Measurement units" },
+              { "name": "safesearch", "type": "SafeSearch", "required": false, "description": "Safe-search level" },
+              { "name": "spellcheck", "type": "bool", "required": false, "description": "Spellcheck the query" }
+            ],
+            "response_fields": [
+              { "name": "results", "type": "list[PlaceResultItemData]" }
+            ],
+            "schema": { "data": "PlaceSearchData", "result": "PlaceSearchResult" }
+          },
+          "brave_summarizer": {
+            "endpoint": "GET /res/v1/summarizer/search",
+            "description": "Retrieves an AI-generated summary of web search results using Brave's Summarizer API.",
+            "tier": "GET",
+            "params": [
+              { "name": "key", "type": "str", "required": true, "description": "Summarizer key from brave_web_search called with summary=true" },
+              { "name": "entity_info", "type": "bool", "required": false, "description": "Include related entity information" }
+            ],
+            "response_fields": [
+              { "name": "text", "type": "str" }
+            ],
+            "schema": { "data": "SummarizerData", "result": "SummarizerResult" }
+          },
+          "brave_llm_context": {
+            "endpoint": "GET /res/v1/llm/context",
+            "description": "Retrieves pre-extracted, relevance-ranked web content using Brave's LLM Context API, optimised for AI agents, LLM grounding, and RAG pipelines.",
+            "tier": "GET",
+            "params": [
+              { "name": "query", "type": "str", "required": true, "description": "Search query (max 400 chars, 50 words)" },
+              { "name": "country", "type": "CountryCode", "required": false, "description": "Country for results" },
+              { "name": "search_lang", "type": "SearchLang", "required": false, "description": "Search language" },
+              { "name": "count", "type": "int", "required": false, "description": "Number of results to consider (1–50)" },
+              { "name": "freshness", "type": "str | None", "required": false, "description": "Time filter: pd pw pm py or YYYY-MM-DDtoYYYY-MM-DD" },
+              { "name": "spellcheck", "type": "bool", "required": false, "description": "Spellcheck the query" },
+              { "name": "maximum_number_of_urls", "type": "int | None", "required": false, "description": "Max URLs to extract content from (1–50)" },
+              { "name": "maximum_number_of_tokens", "type": "int | None", "required": false, "description": "Total token budget (1024–32768)" },
+              { "name": "maximum_number_of_snippets", "type": "int | None", "required": false, "description": "Max snippets across all URLs (1–256)" },
+              { "name": "context_threshold_mode", "type": "ContextThresholdMode | None", "required": false, "description": "Relevance filtering mode" },
+              { "name": "maximum_number_of_tokens_per_url", "type": "int | None", "required": false, "description": "Per-URL token budget (512–8192)" },
+              { "name": "maximum_number_of_snippets_per_url", "type": "int | None", "required": false, "description": "Per-URL snippet cap (1–100)" },
+              { "name": "enable_local", "type": "bool | None", "required": false, "description": "Enable local recall" },
+              { "name": "enable_source_metadata", "type": "bool | None", "required": false, "description": "Enrich source metadata" },
+              { "name": "x_loc_lat", "type": "float | None", "required": false, "description": "User latitude (-90 to 90)" },
+              { "name": "x_loc_long", "type": "float | None", "required": false, "description": "User longitude (-180 to 180)" },
+              { "name": "x_loc_city", "type": "str | None", "required": false, "description": "User city" },
+              { "name": "x_loc_country", "type": "str | None", "required": false, "description": "User 2-letter country code" }
+            ],
+            "response_fields": [],
+            "schema": { "data": "LlmContextData", "result": "LlmContextResult" }
+          }
+        }
+      }
+    }
+  },
+  "resources": {},
+  "prompts": {}
+}
